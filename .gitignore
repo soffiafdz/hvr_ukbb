@@ -1,5 +1,7 @@
 data/
 code/py_deep_seg/
+code/DARQ/python/cls
+code/DARQ/python/dist
 library_cnn/
 plots/
 lists/aqc_jpgs/sub-*
