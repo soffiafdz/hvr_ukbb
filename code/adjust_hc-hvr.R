@@ -369,27 +369,29 @@ hc_hvr.lst  <-   hcvc.lst |>
 lapply(function(segm_lvl)
        lapply(segm_lvl,
               function(dsgn_lvl)
-              lapply(dsgn_lvl,
-                     function(match_lvl)
-                       match_lvl[, let(RAW_cc = CC,
-                                       # TIV proportion method: VOL/TIV
-                                       PRP_cc = CC / ICC,
-                                       # Residual normalizations
-                                       RES_cc = CC - B * (ICC - ICC_mean))
-                                 # Clean columns
-                                 ][, c("CC", "B", "ICC_mean") := NULL] |>
-                        # Create a column for Head-size adjustment
-                        melt(measure = patterns("_cc$"), variable = "ADJ") |>
-                        # Disaggregate ROIs
-                        dcast(... ~ ROI, value = "value") |>
-                        # Calculate HVR
-                        {function(DT)
-                         DT[, ADJ := fifelse(ADJ == "RAW_cc",
-                                             NA, str_remove(ADJ, "_cc$"))
-                            ][!is.na(ADJ), HVR := (HC / (HC + VC))]}() |>
-                        # Set keys for easier joining
-                        setkey(EID, INST))))
+                lapply(dsgn_lvl,
+                       function(match_lvl)
+                         match_lvl[, let(RAW_cc = CC,
+                                   # TIV proportion method: VOL/TIV
+                                   PRP_cc = CC / ICC,
+                                   # Residual normalizations
+                                   RES_cc = CC - B * (ICC - ICC_mean))
+                         # Clean columns
+                         ][, c("CC", "B", "ICC_mean") := NULL] |>
+                         # Create a column for Head-size adjustment
+                         melt(measure = patterns("_cc$"), variable = "ADJ") |>
+                         # Disaggregate ROIs
+                         dcast(... ~ ROI, value = "value") |>
+                         # Calculate HVR
+                         {function(DT)
+                           DT[, ADJ := fifelse(ADJ == "RAW_cc", "NON",
+                                               str_remove(ADJ, "_cc$"))
+                              ][!"NON", on = "ADJ",
+                              HVR := (HC / (HC + VC))]}() |>
+                         # Set keys for easier joining
+                         setkey(EID, INST))))
 rm(hcvc.lst)
+
 
 ### OUT
 outrds      <- c("sex-age-icc_matching", "hc-hvr_adj") |>
