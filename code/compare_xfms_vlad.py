@@ -7,6 +7,7 @@ import csv
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+
 def extract_matrix_from_xfm(xfm_file):
     """
     Extract the 4x4 transformation matrix from the .xfm file.
@@ -33,75 +34,105 @@ def extract_matrix_from_xfm(xfm_file):
                     float(x.replace(';', ''))
                     for x in matrix_line.split()
                 ])
+            # Add homogeneous coordinates adjustment
+            matrix.append([0, 0, 0, 1])
             # Return the 4x4 matrix as a NumPy array
             return np.array(matrix)
 
-def compute_distance(matrix1, matrix2):
+
+def apply_xfm(cube, xfm):
     """
-    Compute the Frobenius norm
-    (a measure of the difference between the two matrices)
+    Apply the transformation to the cube corners.
 
     Args:
-        matrix1 (np.ndarray): The first 4x4 transformation matrix.
-        matrix2 (np.ndarray): The second 4x4 transformation matrix.
+        cube (np.ndarray): The coordinates of the cube's corners
+            (in homogeneous form).
+        xfm (np.ndarray): The transformation matrix (4x4).
 
     Returns:
-        float: The Frobenius norm.
+        np.ndarray: Transformed coordinates after applying the transformation.
+    """
+    # Apply the transformation
+    transformed_cube = np.dot(cube, xfm.T)
+    return(transformed_cube)
 
-    Raises:
-        ValueError: If the two matrices have different shapes.
+
+def compute_displacement(orig_cube, final_cube):
+    """
+    Compute the Euclidean displacement between the original and transformed
+    cube corners.
+
+    Args:
+        orig_cube (np.ndarray): Original 3D coordinates of the cube corners.
+        final_cube (np.ndarray): Final 3D coordinates after transformations.
+
+    Returns:
+        np.ndarray: Array of displacements for each corner.
     """
     # Ensure that the shapes of the matrices match before the comparison
-    if matrix1.shape != matrix2.shape:
-        raise ValueError(
-            "Matrices have different shapes and cannot be compared."
-        )
-
-    # Compute the difference between the two matrices
-    difference = matrix1 - matrix2
-
-    # Return the Frobenius norm of the difference matrix
-    return np.linalg.norm(difference, 'fro')
+    return np.linalg.norm(orig_cube[:, :3] - final_cube[:, :3], axis=1)
 
 
+# TODO: fix the function description
 def process_subject_dir(subj_dir):
     """
     Process a subject directory to compare the xfm files inside
-    by computing the distance between them.
+    by computing the displacement of an arbitrary cube transformed by them.
 
     Args:
         subj_dir (str): The path to the subject directory containing
         the two xfm files.
 
     Returns:
-        tuple: A tuple containing the subject's EID and the distance between
-        the two transformation files.
+        tuple: A tuple containing the subject's EID and
+            an array (8x1) of displacements for each cube's corner.
 
     Raises:
         Exception: If there are issues reading or processing the .xfm files.
     """
-    xfm_files = list(Path(subj_dir).glob("*.xfm"))
+    xfm_files = [
+        xfm for xfm in Path(subj_dir).glob("*v1_inv.xfm")
+    ] + [
+        xfm for xfm in Path(subj_dir).glob("*v2.xfm")
+    ]
 
     # Ensure that exactly two .xfm files are present
     if len(xfm_files) != 2:
         print(
-            f"Warning: Subject {subj_dir.name} "
-            f"does not have exactly two .xfm files."
+            f"Warning: Subject {Path(subj_dir).name} "
+            "does not have exactly two .xfm files: "
+            f"{xfm_files}"
         )
         return None
 
+    cube_init = np.array([
+        [-100, -100, -100, 1],
+        [ 100, -100, -100, 1],
+        [-100,  100, -100, 1],
+        [ 100,  100, -100, 1],
+        [-100, -100,  100, 1],
+        [ 100, -100,  100, 1],
+        [-100,  100,  100, 1],
+        [ 100,  100,  100, 1]
+    ])
 
     try:
         # Extract the transformation matrices from the two .xfm files
+        # 0: Reza's (Ntv -> Stx); 1: Vlad's (Stx -> Ntv)
+        # Louis said: send from stx -> ntv -> stx
         matrix1 = extract_matrix_from_xfm(xfm_files[0])
         matrix2 = extract_matrix_from_xfm(xfm_files[1])
 
-        # Compute the distance (Frobenius norm) between them
-        distance = compute_distance(matrix1, matrix2)
-        return (Path(subj_dir).name, distance)
+        # Apply transformations
+        cube_middle = apply_xfm(cube_init, matrix1)
+        cube_final = apply_xfm(cube_middle, matrix2)
+
+        # Compute the displacement (Euclidean distance) between the corners
+        displacement = compute_displacement(cube_init, cube_final)
+        return (Path(subj_dir).name, displacement)
 
     except Exception as e:
-        print(f"Error extracting matrix for {subj_dir.name}: {e}")
+        print(f"Error extracting matrix for {Path(subj_dir).name}: {e}")
         return None
 
 
@@ -137,15 +168,15 @@ with tqdm(total=len(subj_dirs),
             pbar.update(1)
 
 # Filter out any None results and write them to CSV
-outcsv = code_dir.parent / 'data' / 'xfm_distances_vlad_v1-v2.csv'
+outcsv = code_dir.parent / 'data' / 'xfm_displacements_vlad_v1-v2.csv'
 results = [r for r in results if r is not None]
 
 with outcsv.open('w', newline='') as file:
     writer = csv.writer(file)
-    writer.writerow(['EID', 'Distance'])
-    for eid, distance in tqdm(results,
-                              desc="Writing CSV",
-                              unit="rows",
-                              total=len(results),
-                              ):
-        writer.writerow([eid, distance])
+    writer.writerow(['EID'] + [f'Corner{i}' for i in range(1,9)])
+    for eid, displacements in tqdm(results,
+                                   desc="Writing CSV",
+                                   unit="rows",
+                                   total=len(results),
+                                   ):
+        writer.writerow([eid] + displacements.tolist())
