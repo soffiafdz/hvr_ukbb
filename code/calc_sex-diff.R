@@ -3,7 +3,6 @@
 library(here)
 library(data.table)
 library(effsize)
-library(progress)
 library(ggplot2)
 library(GGally)
 library(ggtext)
