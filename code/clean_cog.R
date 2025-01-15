@@ -21,14 +21,6 @@ if (all(file.exists(fpaths))) {
 
 rm(fpaths)
 
-### Clinical history
-##TODO: Decide whether to keep this here or move to MCFA code.
-## Move to MCFA script
-## Filter out people with F, G or Q0 dx in ICD10 and bad QC
-#icd_10.dt   <- covars.dt[ICD_10 %like% "F|G|Q0", .(EID)]
-#cnn.dt      <- cnn.dt[!icd_10.dt, on = "EID"]
-#rm(icd_10.dt)
-
 ### FUNCTIONS for parsing cognitive data
 ## Extract columns according to a regex pattern
 ext_cols <- function(
@@ -219,14 +211,10 @@ for (cog_test in unique(cog_meta.dt$NAME)) {
   sublist     <- sublist[sapply(sublist, function(DT) length(DT) > 1)]
 
   # Extract sessions
-  #TODO: check that this is deprecated before removing.
-  #if (submetadata$INSTANCED) subDT <- ext_sess(subDT)
   if (submetadata$INSTANCED) sublist <- lapply(sublist, ext_sess)
 
   # Extract arrays
   if (submetadata$ARRAYED) {
-    #TODO: check that this is deprecated before removing.
-    #subDT <- ext_arrays(subDT, include.sess = submetadata$INSTANCED)
     sublist <- lapply(
       sublist,
       ext_arrays,
@@ -236,17 +224,20 @@ for (cog_test in unique(cog_meta.dt$NAME)) {
 
   # Separate online tests
   if (submetadata$ONLINE) {
-    #TODO: check that this is deprecated before removing.
-    #subDT <- sep_online(
-      #subDT,
-      #include.sess = submetadata$INSTANCED,
-      #include.array = submetadata$ARRAYED
-    #)
     sublist <- lapply(
       sublist,
       sep_online,
       include.sess = submetadata$INSTANCED,
       include.array = submetadata$ARRAYED
+    )
+  } else {
+    lapply(
+      sublist,
+      function(DT) {
+        DT[, ONLINE := FALSE]
+        setcolorder(DT, "ONLINE", after = "SESSION")
+        setkey(DT, "EID", "SESSION", "ONLINE")
+      }
     )
   }
 
@@ -289,55 +280,29 @@ notes.dt    <-
     notes.dt, on = "FIELD", .(NAME, COLNAME, NOTES), nomatch = NULL
   ]
 
+
+## Clinical history
+# Filter out people with F, G or Q0 dx in ICD10 and bad QC
+icd_10.dt   <- covars.dt[ICD_10 %like% "F|G|Q0", .(EID)] |> setkey(EID)
+cog_tests.lst <- lapply(cog_tests.lst, function(DT) DT[!icd_10.dt])
+rm(icd_10.dt)
+
 ### Specific cleaning
 ## Matrices (Abstract reasoning/Problem solving)
-# There is only Offline scores.
-# Make sure ONLINE is redundant before removing.
-online_lvls <- unique(cog_tests.lst[["Matrix_pattern_recognition"]]$ONLINE)
-rm_online   <- online_lvls == FALSE
-if (rm_online) {
-  # Remove useless ONLINE column
-  cog_tests.lst[["Matrix_pattern_recognition"]][, ONLINE := NULL]
-  # Summarize time among arrays: mean, min & max
-  cog_tests.lst[["Matrix_pattern_recognition"]] <- merge(
-    x = cog_tests.lst[["Matrix_pattern_recognition"]][
-      !is.na(ARRAY),
-      ## DEPRECATED::Propagate N correct & attempts for time arrays
-      ##.(ARRAY = as.integer(ARRAY), MATS_time),
-      .(MATS_time_mean = mean(MATS_time),
-        MATS_time_min = min(MATS_time),
-        MATS_time_max = max(MATS_time)),
-      keyby = .(EID, SESSION)
-    ],
-    y = cog_tests.lst[["Matrix_pattern_recognition"]][
-      is.na(ARRAY),
-      .(MATS_corr_try = MATS_corr / MATS_try, MATS_corr, MATS_try),
-      keyby = .(EID, SESSION)
-    ]
-  )
-} else {
-  # Failsafe; useless code
-  cog_tests.lst[["Matrix_pattern_recognition"]] <- merge(
-    x = cog_tests.lst[["Matrix_pattern_recognition"]][
-      !is.na(ARRAY),
-      .(MATS_time_mean = mean(MATS_time),
-        MATS_time_min = min(MATS_time),
-        MATS_time_max = max(MATS_time)),
-      keyby = .(EID, SESSION, ONLINE)
-    ],
-    y = cog_tests.lst[["Matrix_pattern_recognition"]][
-      is.na(ARRAY),
-      .(MATS_corr_try = MATS_corr / MATS_try, MATS_corr, MATS_try),
-      keyby = .(EID, SESSION, ONLINE)
-    ]
-  )
-  # Reset keys
-  setkey(
-    cog_tests.lst[["Matrix_pattern_recognition"]],
-    EID, SESSION, ONLINE, ARRAY
-  )
-}
-rm(online_lvls, rm_online)
+cog_tests.lst[["Matrix_pattern_recognition"]] <- merge(
+  x = cog_tests.lst[["Matrix_pattern_recognition"]][
+    !is.na(ARRAY),
+    .(MATS_time_mean = mean(MATS_time),
+      MATS_time_min = min(MATS_time),
+      MATS_time_max = max(MATS_time)),
+    keyby = .(EID, SESSION, ONLINE)
+  ],
+  y = cog_tests.lst[["Matrix_pattern_recognition"]][
+    is.na(ARRAY),
+    .(MATS_corr_try = MATS_corr / MATS_try, MATS_corr, MATS_try),
+    keyby = .(EID, SESSION, ONLINE)
+  ]
+)
 
 ## Trail making (Processing speed/executive function)
 # NA = 0 in Online follow-up
@@ -424,6 +389,8 @@ cog_tests.lst[["Pair_matching"]][
 
 # Remove array cols
 cog_tests.lst[["Pair_matching"]][, c("ARRAY", "PRS_inc", "PRS_time") := NULL]
+cog_tests.lst[["Pair_matching"]] <- unique(cog_tests.lst[["Pair_matching"]])
+setkey(cog_tests.lst[["Pair_matching"]], "EID", "SESSION", "ONLINE")
 
 ## Tower rearranging (Planning/Executive function)
 # Correct/Attempted
@@ -448,7 +415,6 @@ cog_tests.lst[["Prospective_memory"]][
   )
 ]
 
-#TODO: Save cog_meta.dt & cog_tests.lst
 ## OUT
 outfiles <- here(
   "data/rds",
