@@ -7,8 +7,7 @@ library(lavaan)
 
 # TODO: Re-test models with scaling turned on.
 # Later figure out the implications about it.
-SCALING <- T
-REGROUP <- T
+SCALING <- F
 
 ### IN
 fpaths <- here(
@@ -84,57 +83,14 @@ ext_tests   <- function(
 #9 Prospective memory (Memory/Prospective memory)          :: N - 227774
 
 fpath       <- here("data/rds/cfa_grouped_data.rds")
-if (all(file.exists(fpath), !REGROUP)) {
+#if (file.exists(fpath)) {
+if (F) {
   if (!exists("DTs")) DTs <- readRDS(fpath)
 } else {
-  DTs <- list()
-
-## Option1: Cognitive domains
-  DTs[["Cognitive_domains"]] <- list()
-# Memory: Pair matching; Numeric memory; Prospective memory
-  DTs[[1]][["Memory"]] <- ext_tests(
-    cog_tests.lst, c(6,4,9), scaling = SCALING
-  )
-# Processing speed: Reaction time, Trail making (numeric), Symbol-digits subst
-#TODO: Use only Numeric variables for TMT
-  DTs[[1]][["Proc_speed"]] <- ext_tests(
-    cog_tests.lst, c(5,2,8), scaling = SCALING
-  )
-# Reasoning: Fluid intelligence, Matrices
-  DTs[[1]][["Reasoning"]] <- ext_tests(
-    cog_tests.lst, c(3,1), scaling = SCALING
-  )
-# Executive function: Tower rearranging, Trail making (alphanum)
-#TODO: Use only Alphanumeric variables for TMT
-  DTs[[1]][["Exec_function"]] <- ext_tests(
-    cog_tests.lst, c(7,2), scaling = SCALING
-  )
-
-## Option2: (Expanded) Cognitive domains
-  DTs[["Expanded_domains"]] <- list()
-# Memory: """"""
-  DTs[[2]][["Memory"]] <- copy(DTs[[1]][["Memory"]])
-# Processing speed: """"""
-  DTs[[2]][["Proc_speed"]] <- copy(DTs[[1]][["Proc_speed"]])
-# Reasoning: Fluid intelligence, Matrices, Tower rearranging
-  DTs[[2]][["Reasoning"]] <- ext_tests(
-    cog_tests.lst, c(3,1,7), scaling = SCALING
-  )
-# Executive function: Tower rearranging, Trail making (alphanum), Symbol-digits
-  DTs[[2]][["Exec_function"]] <- ext_tests(
-    cog_tests.lst, c(7,2,8), scaling = SCALING
-  )
-
-## Option3: Broad domains
-  DTs[["Broad_domains"]] <- list()
-# Memory: """"""
-  DTs[[3]][["Memory"]] <- copy(DTs[[1]][["Memory"]])
-# Processing speed: """"""
-  DTs[[3]][["Proc_speed"]] <- copy(DTs[[1]][["Proc_speed"]])
-# Reasoning & Exec function:
-#   Fluid intelligence, Matrices, Trail making (alphanum), Tower rearranging
-  DTs[[3]][["Reasoning_Exec_function"]] <- ext_tests(
-    cog_tests.lst, c(1:3,7), scaling = SCALING
+  DTs <- list(
+    Memory = ext_tests(cog_tests.lst, c(6,4,9), scaling = SCALING),
+    Proc_speed = ext_tests(cog_tests.lst, c(5,2,8), scaling = SCALING),
+    Reas_Exec = ext_tests(cog_tests.lst, c(1:3,7), scaling = SCALING)
   )
 
   saveRDS(DTs, fpath)
@@ -143,10 +99,6 @@ rm(fpath)
 
 
 ### CFA MODELING
-### ONLINE tests are not available at imaging sessions (2|3)
-
-## Option1: Cognitive domains :: All of these work and are valid ::
-##TODO: Explore Option 2 and 3 as variants
 test_names <- models <- fits <- list()
 
 ## Cognitive tests included in the factors for each domain
@@ -156,10 +108,9 @@ test_names <- list(
   Memory = c("PRS_mean_time", "PRS_mean_inc", "NUM", "PRMEM_res_n"),
   # Processing speed: Reaction time, Trail making (numeric), Symbol-digit
   Proc_speed = c("REACT", "TRLS_num_err_t", "SYM_corr", "SYM_try"),
-  # Reasoning: Fluid intelligence, Matrices
-  Reasoning = c("FLINT", "MATS_corr_try", "MATS_time_max"),
-  # Executive function: Tower rearranging, Trail making (alphanum)
-  Exec_function = c("TOWER_corr", "TOWER_try", "TRLS_alnum_err_t")
+  # Reasoning & Exec function:
+  #   Fluid intelligence, Matrices, Trail making (alphanum), Tower rearranging
+  Reas_Exec = c("FLINT", "MATS_corr_try", "TRLS_alnum_err_t", "TOWER_corr_try")
 )
 
 ## Factor loadings for CFA
@@ -169,7 +120,7 @@ models <- Map(
     sprintf("%s =~ %s", factor_name, loadings)
   },
   test_names,
-  c("MEMORY", "PROCSPEED", "REASONING", "EXECFUNC")
+  c("MEMORY", "PROCSPEED", "REAS_EXFN")
 )
 
 ## Model fitting
@@ -183,22 +134,43 @@ fits <- Map(
       missing = "fiml" # Full Information Maximum Likelihood (FIML)
     ) |> suppressWarnings()
   },
-  DTs[["Cognitive_domains"]],
+  DTs,
   models
 )
 
-### Explore all 4 cognitive domains
-single_fit <- DTs[["Cognitive_domains"]] |>
-  lapply(melt, id = 1:2) |>
-  rbindlist() |>
-  {function(DT) DT[variable %in% unlist(test_names)]}() |>
-  unique() |>
-  na.omit() |>
-  dcast(... ~ variable) |>
-  cfa(
-    model = paste(models, collapse = "\n"),
-    std.lv = TRUE,
-    cluster = "EID",
-    missing = "fiml"
-  )
+## Explore all 3 cognitive domains
+## This doesn't give good results, but might be due high levels of missing data
+#single_fit <- DTs |>
+  #lapply(melt, id = 1:2) |>
+  #rbindlist() |>
+  #{function(DT) DT[variable %in% unlist(test_names)]}() |>
+  #unique() |>
+  #na.omit() |>
+  #dcast(... ~ variable) |>
+  #cfa(
+    #model = paste(models, collapse = "\n"),
+    #std.lv = TRUE,
+    #cluster = "EID",
+    #missing = "fiml"
+  #)
 
+### Extract latent factors
+latent_cog.dt <- Map(
+  function(Data, Fit) {
+    Data[, .(EID, SESSION, lavPredict(Fit))] |>
+      na.omit() |>
+      melt(id = 1:2)
+  },
+  DTs,
+  fits
+) |>
+  rbindlist() |>
+  dcast(... ~ variable)
+
+
+### OUT
+# MCFA fittings
+here("data/rds/cog_mcfa_fits.rds") |> saveRDS(object = fits)
+
+# Latent Cognitive Domains
+here("data/rds/cog_mcfa_domains.rds") |> saveRDS(object = latent_cog.dt)
