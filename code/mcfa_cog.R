@@ -3,7 +3,6 @@
 library(here)
 library(data.table)
 library(lavaan)
-#library(stringr)
 
 # TODO: Re-test models with scaling turned on.
 # Later figure out the implications about it.
@@ -104,13 +103,24 @@ test_names <- models <- fits <- list()
 ## Cognitive tests included in the factors for each domain
 # TODO: Remove useless derivative measures in code/clean_cog.R?
 test_names <- list(
-  # Memory: Pair matching; Numeric memory; Prospective memory
+  # Memory::
+  # Pair matching: Mean time (Reversed)
+  # Pair matching: Mean errors (Reversed)
+  # Numeric memory: Digits remembered
+  # Prosp mem result: 0 - incorrect; 1 - second attempt; 2 - first attempt
   Memory = c("PRS_mean_time", "PRS_mean_inc", "NUM", "PRMEM_res_n"),
-  # Processing speed: Reaction time, Trail making (numeric), Symbol-digit
-  Proc_speed = c("REACT", "TRLS_num_err_t", "SYM_corr", "SYM_try"),
+  # Processing speed:: Reaction time, Trail making (numeric), Symbol-digit
+  # Reaction: Mean time to id matches (Reversed)
+  # Trails (numeric): Error / time ** This needs to change.
+  # Symbol-digit: Number of correct matches
+  # Symbol-digit: Number of attempts
+  Proc_speed = c("REACT", "TRLS_num_time", "SYM_corr", "SYM_try"),
   # Reasoning & Exec function:
-  #   Fluid intelligence, Matrices, Trail making (alphanum), Tower rearranging
-  Reas_Exec = c("FLINT", "MATS_corr_try", "TRLS_alnum_err_t", "TOWER_corr_try")
+  # Fluid intelligence: Score
+  # Matrices: Correct and attempts ratio
+  # Trails (alphanum): Error/time
+  # Tower rearranging: Correct and attempts ratio
+  Reas_Exec = c("FLINT", "MATS_corr", "TRLS_alnum_time", "TOWER_corr")
 )
 
 ## Factor loadings for CFA
@@ -138,6 +148,13 @@ fits <- Map(
   models
 )
 
+### This has to be done in the terminal, doesn't work in Rscript
+## Printing parameters
+#fpath     <- #specify
+#sink(fpath)
+#parameters::parameters(fits[[i]]) |> insight::print_md()
+#sink()
+
 ## Explore all 3 cognitive domains
 ## This doesn't give good results, but might be due high levels of missing data
 #single_fit <- DTs |>
@@ -155,9 +172,9 @@ fits <- Map(
   #)
 
 ### Extract latent factors
-latent_cog.dt <- Map(
+lat_cog.dt <- Map(
   function(Data, Fit) {
-    Data[, .(EID, SESSION, lavPredict(Fit))] |>
+    Data[, .(EID, INST = gsub("ses", "ses-", SESSION), lavPredict(Fit))] |>
       na.omit() |>
       melt(id = 1:2)
   },
@@ -165,7 +182,8 @@ latent_cog.dt <- Map(
   fits
 ) |>
   rbindlist() |>
-  dcast(... ~ variable)
+  dcast(... ~ variable) |>
+  setkey(EID, INST)
 
 
 ### OUT
@@ -173,4 +191,4 @@ latent_cog.dt <- Map(
 here("data/rds/cog_mcfa_fits.rds") |> saveRDS(object = fits)
 
 # Latent Cognitive Domains
-here("data/rds/cog_mcfa_domains.rds") |> saveRDS(object = latent_cog.dt)
+here("data/rds/cog_mcfa_domains.rds") |> saveRDS(object = lat_cog.dt)

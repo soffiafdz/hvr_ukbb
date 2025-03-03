@@ -265,10 +265,10 @@ for (cog_test in unique(cog_meta.dt$NAME)) {
   ]
 }
 
-rm(
-  subDT, sublist, cog_test, cols_chr, cols_fct, cols_num,
-  columname, columnames, submetadata, subt_conv.dt, t_conv.dt
-)
+#rm(
+  #subDT, sublist, cog_test, cols_chr, cols_fct, cols_num,
+  #columname, columnames, submetadata, subt_conv.dt, t_conv.dt
+#)
 
 ## Parse notes for aid
 notes.dt    <-
@@ -292,13 +292,13 @@ rm(icd_10.dt)
 cog_tests.lst[["Matrix_pattern_recognition"]] <- merge(
   x = cog_tests.lst[["Matrix_pattern_recognition"]][
     !is.na(ARRAY),
-    .(MATS_time_mean = mean(MATS_time),
-      MATS_time_min = min(MATS_time),
-      MATS_time_max = max(MATS_time)),
+    # Mean time (Reversed)
+    .(MATS_time_mean = -mean(MATS_time)),
     keyby = .(EID, SESSION, ONLINE)
   ],
   y = cog_tests.lst[["Matrix_pattern_recognition"]][
     is.na(ARRAY),
+    # Correct/Attempts ratio
     .(MATS_corr_try = MATS_corr / MATS_try, MATS_corr, MATS_try),
     keyby = .(EID, SESSION, ONLINE)
   ]
@@ -316,8 +316,8 @@ rm(column, cols) ## TODO: Make sure this does not break anything
 cog_tests.lst[["Trail_making"]][
   is.na(TRLS_complete),
   TRLS_complete := fcase(
-  TRLS_alnum_time == 0 | TRLS_num_time == 0, "Abandoned",
-  default = "Completed"
+    TRLS_alnum_time == 0 | TRLS_num_time == 0, "Abandoned",
+    default = "Completed"
   )
 ]
 
@@ -335,17 +335,20 @@ cog_tests.lst[["Trail_making"]][
   , TRLS_complete := NULL
 ]
 
-# Summarize: -Errors / Time
+# Summarize: Errors / Time (Reversed) :: This was not used.
+# Reverse time
 # Numeric
 cog_tests.lst[["Trail_making"]][
   TRLS_num_time > 0,
-  TRLS_num_err_t := -TRLS_num_err / TRLS_num_time,
+  #TRLS_num_err_t := -TRLS_num_err / TRLS_num_time,
+  TRLS_num_time := -TRLS_num_time,
   .(EID, SESSION, ONLINE)
 ]
 # Alpha-Numeric
 cog_tests.lst[["Trail_making"]][
   TRLS_alnum_time > 0,
-  TRLS_alnum_err_t := -TRLS_alnum_err / TRLS_alnum_time,
+  #TRLS_alnum_err_t := -TRLS_alnum_err / TRLS_alnum_time,
+  TRLS_alnum_time := -TRLS_alnum_time,
   .(EID, SESSION, ONLINE)
 ]
 
@@ -357,33 +360,37 @@ cog_tests.lst[["Trail_making"]][
 # TODO: Change? Check if this works
 
 ## Reaction time (Processing speed)
-# Nothing to do
+cog_tests.lst[["Reaction_time"]][
+  ,
+  REACT := -REACT
+]
 
 ## Pair matching (Memory/Visual-spatial memory)
 # TODO: Test difference between:
 # Mean of ratio errors/time
 cog_tests.lst[["Pair_matching"]][
   PRS_time > 0, # TODO: Impute Time==0???
-  PRS_inc_time := mean(PRS_inc / PRS_time),
+  # Incorrect by time (Reversed)
+  PRS_inc_time := -mean(PRS_inc / PRS_time),
   .(EID, SESSION, ONLINE)
 ]
-# Mean errors w/time as weights
+# Mean errors w/time as weights (Reversed)
 cog_tests.lst[["Pair_matching"]][
   ,
-  PRS_wt_inc_time := sum(PRS_inc * PRS_time) / sum(PRS_time),
+  PRS_wt_inc_time := -sum(PRS_inc * PRS_time) / sum(PRS_time),
   .(EID, SESSION, ONLINE)
 ]
-# Mean time w/errors as weights
+# Mean time w/errors as weights (Reversed)
 cog_tests.lst[["Pair_matching"]][
   ,
-  PRS_wt_time_inc := sum(PRS_inc * PRS_time) / sum(PRS_inc),
+  PRS_wt_time_inc := -sum(PRS_inc * PRS_time) / sum(PRS_inc),
   .(EID, SESSION, ONLINE)
 ]
 
 # Mean Errors & Time
 cog_tests.lst[["Pair_matching"]][
   ,#PRS_time > 0, # TODO: Impute Time==0???
-  let(PRS_mean_inc = mean(PRS_inc), PRS_mean_time = mean(PRS_time)),
+  let(PRS_mean_inc = -mean(PRS_inc), PRS_mean_time = -mean(PRS_time)),
   .(EID, SESSION, ONLINE)
 ]
 

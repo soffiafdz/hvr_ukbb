@@ -90,13 +90,6 @@ cnn.dt[, SCALE := NULL]
 cnn.dt[, SEGM := "LPP_CNN"]
 rm(roi.cols, vols.dt, icc_scl.dt)
 
-## Clinical history
-# Filter out people with F, G or Q0 dx in ICD10 and bad QC
-icd_10.dt   <- covars.dt[ICD_10 %like% "F|G|Q0", .(EID)]
-cnn.dt      <- cnn.dt[!icd_10.dt, on = "EID"]
-asblynet.dt <- asblynet.dt[!icd_10.dt, on = "EID"]
-rm(icd_10.dt)
-
 ## Quality control
 # One subject slipped through
 cnn.dt      <- cnn.dt[!qc.dt[DARQ < .25]][EID != 4873046]
@@ -115,6 +108,13 @@ dcast(... ~ variable, value.var = "value") |>
 na.omit() |>
 setkey(EID, INST)
 rm(cnn.l.dt)
+
+## Clinical history
+# Filter out people with F, G or Q0 dx in ICD10 and bad QC
+icd_10.dt   <- covars.dt[ICD_10 %like% "F|G|Q0", .(EID)]
+cnn.dt      <- cnn.dt[!icd_10.dt, on = "EID"]
+asblynet.dt <- asblynet.dt[!icd_10.dt, on = "EID"]
+rm(icd_10.dt)
 
 ## Keep UNION of segmentation methods
 hcvc.dt     <- rbind(
@@ -165,7 +165,7 @@ icc.measure <- "LPP_CNN"
 crs.dt      <- hcvc.dt[
   icc.measure,
   on = "SEGM",
-  by = .(EID, INST, ICC)
+  .(EID, INST, ICC)
 ][
   !duplicated(EID)
 ][
@@ -182,7 +182,7 @@ crs.dt[, lapply(.SD, sd), .SDcols = AGE:ICC, by = SEX]
 lng.dt      <- hcvc.dt[
   icc.measure,
   on = "SEGM",
-  by = .(EID, INST, ICC)
+  .(EID, INST, ICC)
 ][
   ,
   if (.N == 2) .SD, EID
@@ -193,6 +193,7 @@ lng.dt      <- hcvc.dt[
 ] |>
 setcolorder("SEX", after = "EID") |>
 setkey(EID, INST)
+DT <- copy(lng.dt)
 
 ## Save EIDs for easier parsing later?
 #lng.subs    <- lng.dt[!duplicated(EID), .(EID)]
@@ -200,6 +201,7 @@ setkey(EID, INST)
 
 # Explore SDs to get an idea for distances in algorithm
 lng.dt[, lapply(.SD, sd), .SDcols = AGE:ICC, by = SEX]
+rm(age_sex.dt, icc.measure)
 
 ## Matching algorithm
 # Matching women -> men
@@ -346,7 +348,7 @@ if (all(!REMATCH, file.exists(fpath))) {
   }
   rm(pb, crs_f.dt, crs_m.dt, lng_b.dt, lng_f.dt, lng_m.dt)
 }
-rm(age_sex.dt, icc.measure, fpath)
+rm(fpath)
 
 ### Head-size adjustment
 # Make hcvc.dt long-format for easier adjustment
