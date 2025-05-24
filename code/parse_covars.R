@@ -48,13 +48,33 @@ cols.dt     <- c(
   AGE                  = 21003,  # Age (years)
   BIRTH_m              = 52,     # Month of birth
   BIRTH_y              = 34,     # Month & Year of birth
+  ETHNIC               = 21000,  # 1 white; 2 mixed; 3 asian; 4 black; 5 chinese
   ## Education & Employment
   EDUC_y               = 845,    # Years
   EDUC_lv              = 6138,   # Level
+  #EDUC_score_eng       = 26414,  # Scores: England
+  #EDUC_score_sct       = 26421,  # Scores: Scotland
+  #EDUC_score_wls       = 26431,  # Scores: Wales
+  EMPLOYMENT           = 6142,   # Employment status
+  ## Indices of multiple deprivation
   EDUC_score_eng       = 26414,  # Scores: England
   EDUC_score_sct       = 26421,  # Scores: Scotland
   EDUC_score_wls       = 26431,  # Scores: Wales
-  EMPLOYMENT           = 6142,   # Employment status
+  EMPL_score_eng       = 26412,  # Scores: England
+  EMPL_score_sct       = 26429,  # Scores: Scotland
+  EMPL_score_wls       = 26419,  # Scores: England
+  HLTH_score_eng       = 26413,  # Scores: England
+  HLTH_score_sct       = 26430,  # Scores: Scotland
+  HLTH_score_wls       = 26420,  # Scores: England
+  HOUS_score_eng       = 26415,  # Scores: England
+  HOUS_score_sct       = 26432,  # Scores: Scotland
+  HOUS_score_wls       = 26423,  # Scores: England
+  INCM_score_eng       = 26411,  # Scores: England
+  INCM_score_sct       = 26428,  # Scores: Scotland
+  INCM_score_wls       = 26418,  # Scores: England
+  IMDP_score_eng       = 26410,  # Scores: England
+  IMDP_score_sct       = 26427,  # Scores: Scotland
+  IMDP_score_wls       = 26426,  # Scores: England
   ## Clinical history
   ILL_father           = 20107,  # Illnesses Father (AD10)
   ILL_mother           = 20110,  # Illnesses Mother (AD10)
