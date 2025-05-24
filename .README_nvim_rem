@@ -1,0 +1,26 @@
+# Steps to use Nvim.R within renv & conda
+
+1. Prepare `nvimcom` tarball:
+if (vim)
+bash`export NVIMR_SOURCE="~/.vim/plugged/Nvim-R/R/"`
+elif (nvim)
+bash`export NVIMR_SOURCE="~/.local/share/nvim/plugged/Nvim-R/R"`
+
+bash`cd $NVIMR_SOURCE; R CMD build nvimcom`
+
+2. Uninstall `nvimcom` globally from R:
+r`remove.packages("nvimcom")`
+
+3 Install `nvimcom` globally (within conda environment)
+r`install.packages("$NVIMR_SOURCE/nvimcom_<version>.tar.gz")`
+
+3.5 Find out location of installed package (NVIMCOM_INSTALLED_DIR):
+r`"nvimcom" |> find.package() |> dirname()`
+
+4. Create a symlink of the installed package:
+bash`mkdir .nvimcomlib; ln -sv $NVIMCOM_INSTALLED_DIR .nvimcomlib`
+
+5. Create `.Renviron` file:
+bash`echo 'RENV_CONFIG_EXTERNAL_LIBRARIES=".nvimcomlib"' > .Renviron`
+
+6. Profit?
