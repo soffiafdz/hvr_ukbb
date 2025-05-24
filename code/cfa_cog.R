@@ -31,7 +31,7 @@ rm(fpaths)
 ## Extract specific cog_tests from list. Concatenate (scaled) columns.
 ##TODO: Include smt here to exclude online tests
 ext_tests   <- function(
-  cog_list,
+  DT,
   subDTs,
   id_vars = c("EID", "SESSION", "ONLINE"),
   scaling = FALSE
@@ -81,18 +81,16 @@ ext_tests   <- function(
 #8 Symbol-digit substitution (Processing speed/Attention)  :: N - 219795
 #9 Prospective memory (Memory/Prospective memory)          :: N - 227774
 
-fpath       <- here("data/rds/cfa_grouped_data.rds")
-#if (file.exists(fpath)) {
-if (F) {
-  if (!exists("DTs")) DTs <- readRDS(fpath)
+fpath       <- here("data/rds/cog_clean-data.rds")
+if (file.exists(fpath)) {
+  if (!exists("cog.lst")) cog.lst <- readRDS(fpath)
 } else {
-  DTs <- list(
+  cog.lst <- list(
     Memory = ext_tests(cog_tests.lst, c(6,4,9), scaling = SCALING),
     Proc_speed = ext_tests(cog_tests.lst, c(5,2,8), scaling = SCALING),
     Reas_Exec = ext_tests(cog_tests.lst, c(1:3,7), scaling = SCALING)
   )
-
-  saveRDS(DTs, fpath)
+  saveRDS(cog.lst, fpath)
 }
 rm(fpath)
 
@@ -144,7 +142,7 @@ fits <- Map(
       missing = "fiml" # Full Information Maximum Likelihood (FIML)
     ) |> suppressWarnings()
   },
-  DTs,
+  cog.lst,
   models
 )
 
@@ -157,7 +155,7 @@ fits <- Map(
 
 ## Explore all 3 cognitive domains
 ## This doesn't give good results, but might be due high levels of missing data
-#single_fit <- DTs |>
+#single_fit <- cog.lst |>
   #lapply(melt, id = 1:2) |>
   #rbindlist() |>
   #{function(DT) DT[variable %in% unlist(test_names)]}() |>
@@ -178,7 +176,7 @@ lat_cog.dt <- Map(
       na.omit() |>
       melt(id = 1:2)
   },
-  DTs,
+  cog.lst,
   fits
 ) |>
   rbindlist() |>
@@ -188,7 +186,7 @@ lat_cog.dt <- Map(
 
 ### OUT
 # MCFA fittings
-here("data/rds/cog_mcfa_fits.rds") |> saveRDS(object = fits)
+here("data/rds/cfa_cog-fits.rds") |> saveRDS(object = fits)
 
 # Latent Cognitive Domains
-here("data/rds/cog_mcfa_domains.rds") |> saveRDS(object = lat_cog.dt)
+here("data/rds/cfa_cog-doms.rds") |> saveRDS(object = lat_cog.dt)

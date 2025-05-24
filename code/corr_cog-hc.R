@@ -13,8 +13,8 @@ library(gt)
 
 ### INPUT
 paths        <- list(
-  rds = c("hc-hvr_adj.rds", "cog_mcfa_domains.rds"),
-  scripts = c("adjust_hc-hvr.R", "mcfa_cog.R")
+  rds = c("hc-hvr_adj.rds", "cfa_cog-doms.rds"),
+  scripts = c("adjust_hc-hvr.R", "cfa_cog.R")
 ) |> Map(
   f = function(Files, Dir) here(Dir, Files),
   c("data/rds", "code")
