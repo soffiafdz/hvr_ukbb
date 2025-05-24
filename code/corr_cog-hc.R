@@ -160,7 +160,7 @@ tab_row_group(
   ),
   rows = cors.dt["LPP_CNN", on = "SEG"]["MEMORY", on = "COG", which(COG == "MEMORY")]
 ) |>
-gtsave("tables/cors_cnn_mem.html")
+gtsave(here("tables/cors_cnn_mem.html"))
 
 # Processing speed
 cors.dt[
@@ -192,7 +192,7 @@ tab_row_group(
   ),
   rows = cors.dt["LPP_CNN", on = "SEG"]["PROCSPEED", on = "COG", which(COG == "PROCSPEED")]
 ) |>
-gtsave("tables/cors_cnn_procsp.html")
+gtsave(here("tables/cors_cnn_procsp.html"))
 
 
 #Reasoning & Exec function
@@ -225,7 +225,7 @@ tab_row_group(
   ),
   rows = cors.dt["LPP_CNN", on = "SEG"]["REAS_EXFN", on = "COG", which(COG == "REAS_EXFN")]
 ) |>
-gtsave("tables/cors_cnn_exfn.html")
+gtsave(here("tables/cors_cnn_exfn.html"))
 
 ## ABLYNET
 cors.dt[
@@ -271,7 +271,7 @@ tab_row_group(
   ),
   rows = cors.dt["ABLYNET", on = "SEG"][order(COG), which(COG == "REAS_EXFN")]
 ) |>
-gtsave("tables/cors_rep.html")
+gtsave(here("tables/cors_rep.html"))
 
 ### OUT
 #TODO: fill this
