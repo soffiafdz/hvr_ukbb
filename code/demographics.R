@@ -5,7 +5,6 @@ library(data.table)
 #library(lubridate)
 #library(readr)
 library(gt)
-library(gtsummary)
 
 ## Recreate tables
 REDO_TABLES <- TRUE
